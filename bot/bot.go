@@ -127,18 +127,16 @@ func tokenQualityCheck(t TokenInfo) (string, bool) {
 
 	if config.TwitterFilter {
 		isEmpty := strings.TrimSpace(t.Data.Twitter) == ""
-		isInvalid := validate.Var(t.Data.Twitter, "url") != nil
 		isTwitter := strings.Contains(t.Data.Twitter, "twitter.com") || strings.Contains(t.Data.Twitter, "x.com")
-		if isEmpty || isInvalid || !isTwitter {
+		if isEmpty || !isTwitter {
 			return getSymbol(false) + " TwitterFilter", false
 		}
 	}
 
 	if config.TelegramFilter {
 		isEmpty := strings.TrimSpace(t.Data.Telegram) == ""
-		isInvalid := validate.Var(t.Data.Telegram, "url") != nil
 		isTelegram := strings.Contains(t.Data.Telegram, "telegram") || strings.Contains(t.Data.Telegram, "t.me")
-		if isEmpty || isInvalid || !isTelegram {
+		if isEmpty || !isTelegram {
 			return getSymbol(false) + " TelegramFilter", false
 		}
 	}
