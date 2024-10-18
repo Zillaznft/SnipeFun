@@ -3,11 +3,11 @@ package bot
 import (
 	"time"
 
-	"GoSnipeFun/config"
-
 	"github.com/blocto/solana-go-sdk/client"
 	"github.com/blocto/solana-go-sdk/types"
 	"github.com/gorilla/websocket"
+
+	"GoSnipeFun/config"
 )
 
 var wsEndpoint = "wss://pumpportal.fun/api/data"

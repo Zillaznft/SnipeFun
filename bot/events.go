@@ -1,9 +1,10 @@
 package bot
 
 import (
-	"GoSnipeFun/config"
 	"encoding/json"
 	"log"
+
+	"GoSnipeFun/config"
 )
 
 var (
@@ -40,10 +41,10 @@ func subscribeToEvents(onlyManage bool) {
 
 	subscriptions := []map[string]any{}
 	if len(watchedWalletsKey) > 0 {
-		subscriptions = append(subscriptions, map[string]any{"method": "subscribeTokenTrade", "keys": watchedTokensKeys})
+		subscriptions = append(subscriptions, map[string]any{"method": "subscribeAccountTrade", "keys": watchedWalletsKey})
 	}
 	if len(watchedTokensKeys) > 0 {
-		subscriptions = append(subscriptions, map[string]any{"method": "subscribeAccountTrade ", "keys": watchedWalletsKey})
+		subscriptions = append(subscriptions, map[string]any{"method": "subscribeTokenTrade", "keys": watchedTokensKeys})
 	}
 	if !onlyManage {
 		subscriptions = append(subscriptions, map[string]any{"method": "subscribeNewToken"})

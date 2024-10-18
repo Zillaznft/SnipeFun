@@ -6,9 +6,10 @@ import (
 	"log"
 	"strings"
 
-	"GoSnipeFun/config"
 	"github.com/blocto/solana-go-sdk/client"
 	"github.com/blocto/solana-go-sdk/rpc"
+
+	"GoSnipeFun/config"
 )
 
 var tokenProgramID string = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"

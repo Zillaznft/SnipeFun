@@ -1,13 +1,14 @@
 package bot
 
 import (
-	"GoSnipeFun/config"
 	"log"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/go-playground/validator/v10"
+
+	"GoSnipeFun/config"
 )
 
 var validate = validator.New()

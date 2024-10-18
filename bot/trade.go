@@ -9,8 +9,9 @@ import (
 	"log"
 	"net/http"
 
-	"GoSnipeFun/config"
 	"github.com/blocto/solana-go-sdk/types"
+
+	"GoSnipeFun/config"
 )
 
 func getTokenInfo(url string) (TokenInfo, error) {
