@@ -44,14 +44,16 @@ const (
 )
 
 var WalletsToWatch = map[string]*struct {
-	NewTokens bool
-	Buy       bool
-	Sell      bool
+	AvoidFilters bool
+	NewTokens    bool
+	Buy          bool
+	Sell         bool
 }{
 	"samp13": { // address to watch
-		NewTokens: false, // snipe new tokens
-		Buy:       false, // copy trade to buy the same tokens
-		Sell:      false, // copy trade to sell the same tokens
+		AvoidFilters: true,  // avoid filters for the events
+		NewTokens:    false, // snipe new tokens
+		Buy:          true,  // copy trade to buy the same tokens
+		Sell:         true,  // copy trade to sell the same tokens
 	},
 	//...
 }

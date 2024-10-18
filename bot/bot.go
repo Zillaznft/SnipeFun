@@ -16,26 +16,28 @@ var validate = validator.New()
 func handleEvent(event TradeEvent) {
 	var err error
 	var tokenInfo TokenInfo
+	walletWatched := config.WalletsToWatch[event.TraderPublicKey]
+	avoidFilters := walletWatched != nil && walletWatched.AvoidFilters
 	isHealthy := true
-	if healthChecking {
-		tokenInfo, err = getTokenInfo(event.MetaData)
-		if err != nil {
+	if healthChecking && !avoidFilters && event.MetaData != "" {
+		if tokenInfo, err = getTokenInfo(event.MetaData); err != nil {
 			log.Printf("getTokenInfo error: %v", err)
 			return
 		}
 		var msg string
-		msg, isHealthy = tokenQualityCheck(tokenInfo)
-		if isHealthy {
+		if msg, isHealthy = tokenQualityCheck(tokenInfo); isHealthy {
 			sendNotification(Notification{
 				Message: "**--- Token Quality Check " + msg + " ---**\n" +
 					"**Token:** `" + event.Mint + "`\n" +
 					tokenInfo.ToString(), Type: infoNotification})
 		}
+	} else {
+		sendNotification(Notification{
+			Message: "**--- Token Quality Check Avoided" + " ---**\n" +
+				"**Token:** `" + event.Mint + "`\n", Type: infoNotification})
 	}
 
-	walletWatched := config.WalletsToWatch[event.TraderPublicKey]
 	trade := Trade{Token: event.Mint}
-
 	switch {
 	case isHealthy && walletWatched != nil:
 		switch {
