@@ -39,6 +39,9 @@ func getTokenInfo(url string) (TokenInfo, error) {
 }
 
 func executeTradeRetry(trade Trade, retries int) (err error) {
+	if trade.Type == "" {
+		return
+	}
 	for i := 0; i < retries; i++ {
 		err = executeTrade(trade)
 		if err == nil {

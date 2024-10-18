@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -14,84 +15,122 @@ import (
 var validate = validator.New()
 
 func handleEvent(event TradeEvent) {
-	var err error
-	var tokenInfo TokenInfo
-	walletWatched := config.WalletsToWatch[event.TraderPublicKey]
-	avoidFilters := walletWatched != nil && walletWatched.AvoidFilters
-	isHealthy := true
-	if healthChecking && !avoidFilters && event.MetaData != "" {
-		if tokenInfo, err = getTokenInfo(event.MetaData); err != nil {
-			log.Printf("getTokenInfo error: %v", err)
+	var (
+		err           error
+		isHealthy     = true
+		walletWatched = config.WalletsToWatch[event.TraderPublicKey]
+		avoidFilters  = walletWatched != nil && walletWatched.AvoidFilters
+	)
+
+	// Perform Token Quality Check
+	if event.TxType == createEvent {
+		isHealthy, err = performTokenQualityCheck(event, avoidFilters)
+		if err != nil {
 			return
 		}
-		var msg string
-		if msg, isHealthy = tokenQualityCheck(tokenInfo); isHealthy {
-			sendNotification(Notification{
-				Message: "**--- Token Quality Check " + msg + " ---**\n" +
-					"**Token:** `" + event.Mint + "`\n" +
-					tokenInfo.ToString(), Type: infoNotification})
-		}
-	} else {
-		sendNotification(Notification{
-			Message: "**--- Token Quality Check Avoided" + " ---**\n" +
-				"**Token:** `" + event.Mint + "`\n", Type: infoNotification})
 	}
 
+	// Determine Trade Type
 	trade := Trade{Token: event.Mint}
 	switch {
-	case isHealthy && walletWatched != nil:
+	case walletWatched != nil:
 		switch {
 		case event.TxType == sellEvent && walletWatched.Sell:
 			trade.Type = sellType
 		case event.TxType == buyEvent && walletWatched.Buy:
 			trade.Type = buyType
-		case event.TxType == createEvent && walletWatched.NewTokens:
+		case isHealthy && event.TxType == createEvent && walletWatched.NewTokens:
 			trade.Type = buyType
 		}
-	case isHealthy && event.TxType == createEvent:
-		if searching && event.shouldExecute() {
-			trade.Type = buyType
+	default:
+		trade.Type = determineTradeType(event, isHealthy)
+	}
+
+	// Execute Trade
+	if err = executeTradeRetry(trade, config.Retries); err != nil {
+		return
+	}
+
+	// Post-Trade Processing
+	processTrade(trade, event)
+}
+
+// performTokenQualityCheck checks the token's quality and sends notifications accordingly.
+func performTokenQualityCheck(event TradeEvent, avoidFilters bool) (bool, error) {
+	if healthChecking && !avoidFilters && event.MetaData != "" {
+		tokenInfo, err := getTokenInfo(event.MetaData)
+		if err != nil {
+			log.Printf("getTokenInfo error: %v", err)
+			return false, err
 		}
-	case event.TxType == sellEvent, event.TxType == buyEvent:
+		msg, isHealthy := tokenQualityCheck(tokenInfo)
+		if isHealthy {
+			sendNotification(Notification{
+				Message: fmt.Sprintf(
+					"**--- Token Quality Check %s ---**\n**Token:** `%s`\n%s",
+					msg, event.Mint, tokenInfo.ToString(),
+				),
+				Type: infoNotification,
+			})
+		}
+		return isHealthy, nil
+	} else {
+		sendNotification(Notification{
+			Message: fmt.Sprintf(
+				"**--- Token Quality Check Avoided ---**\n**Token:** `%s`\n",
+				event.Mint,
+			),
+			Type: infoNotification,
+		})
+		return true, nil
+	}
+}
+
+// determineTradeType decides the type of trade based on the event and current state.
+func determineTradeType(event TradeEvent, isHealthy bool) string {
+	switch event.TxType {
+	case createEvent:
+		if isHealthy && searching && event.shouldExecute() {
+			return buyType
+		}
+	case sellEvent, buyEvent:
 		record := watchedTokens[event.Mint]
 		if managing {
 			switch {
 			case event.shouldExecute():
-				trade.Type = sellType
+				return sellType
 			case config.TakeProfit && event.MarketCapSol > record.MarketCap*config.TakeProfitPcg/100:
-				trade.Type = tpType
+				return tpType
 			case config.StopLoss && event.MarketCapSol < record.MarketCap*config.StopLossPcg/100:
-				trade.Type = sellType
+				return sellType
 			}
 		}
 	}
+	return ""
+}
 
-	if trade.Type == "" {
-		return
-	}
-
-	if err = executeTradeRetry(trade, config.Retries); err == nil {
-		switch trade.Type {
-		case buyType:
-			if managing {
-				record := Record{
-					Address:   event.Mint,
-					Timestamp: time.Now().Unix(),
-					MarketCap: event.MarketCapSol,
-				}
-				watchedTokens[event.Mint] = record
-				addLineToFile(record)
-				subscribeTokenEvents(event.Mint)
+// processTrade performs post-trade actions such as updating records and subscriptions.
+func processTrade(trade Trade, event TradeEvent) {
+	switch trade.Type {
+	case buyType:
+		if managing {
+			record := Record{
+				Address:   event.Mint,
+				Timestamp: time.Now().Unix(),
+				MarketCap: event.MarketCapSol,
 			}
-			if len(watchedTokens) >= config.MaxTrades {
-				searching = false
-			}
-		case sellType:
-			unsubscribeToken(event.Mint)
-			go saveRecordsToFile(watchedTokens)
-		case tpType:
-			// keep watching
+			watchedTokens[event.Mint] = record
+			addLineToFile(record)
+			subscribeTokenEvents(event.Mint)
 		}
+		if len(watchedTokens) >= config.MaxTrades {
+			searching = false
+		}
+	case sellType:
+		unsubscribeToken(event.Mint)
+		go saveRecordsToFile(watchedTokens)
+	case tpType:
+		// Keep watching the token
 	}
 }
 
